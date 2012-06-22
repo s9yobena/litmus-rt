@@ -621,6 +621,8 @@ static void gsnedf_task_exit(struct task_struct * t)
 {
 	unsigned long flags;
 
+	sched_trace_task_termination(t);
+
 	/* unlink if necessary */
 	raw_spin_lock_irqsave(&gsnedf_lock, flags);
 	unlink(t);
