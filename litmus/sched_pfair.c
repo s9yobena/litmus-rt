@@ -850,7 +850,7 @@ static long pfair_admit_task(struct task_struct* t)
 	    cpu_cluster(pstate[task_cpu(t)]))
 		return -EINVAL;
 
-	if (get_rt_period(t) != get_rt_rdeadline(t)) {
+	if (get_rt_period(t) != get_rt_relative_deadline(t)) {
 		printk(KERN_INFO "%s: Admission rejected. "
 			"Only implicit deadlines are currently supported.\n",
 			litmus->plugin_name);
