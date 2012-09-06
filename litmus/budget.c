@@ -62,22 +62,16 @@ static void arm_enforcement_timer(struct enforcement_timer* et,
 	lt_t when_to_fire;
 	TRACE_TASK(t, "arming enforcement timer.\n");
 
-	/* Calling this when there is no budget left for the task
-	 * makes no sense, unless the task is non-preemptive. */
-	BUG_ON(budget_exhausted(t) && (!is_np(t)));
-
 	/* __hrtimer_start_range_ns() cancels the timer
 	 * anyway, so we don't have to check whether it is still armed */
 
-	if (likely(!is_np(t))) {
-		when_to_fire = litmus_clock() + budget_remaining(t);
-		__hrtimer_start_range_ns(&et->timer,
-					 ns_to_ktime(when_to_fire),
-					 0 /* delta */,
-					 HRTIMER_MODE_ABS_PINNED,
-					 0 /* no wakeup */);
-		et->armed = 1;
-	}
+	when_to_fire = litmus_clock() + budget_remaining(t);
+	__hrtimer_start_range_ns(&et->timer,
+				 ns_to_ktime(when_to_fire),
+				 0 /* delta */,
+				 HRTIMER_MODE_ABS_PINNED,
+				 0 /* no wakeup */);
+	et->armed = 1;
 }
 
 
@@ -86,10 +80,34 @@ void update_enforcement_timer(struct task_struct* t)
 {
 	struct enforcement_timer* et = &__get_cpu_var(budget_timer);
 
-	if (t && budget_precisely_enforced(t)) {
+	if (t && budget_precisely_enforced(t) && !is_np(t)) {
 		/* Make sure we call into the scheduler when this budget
-		 * expires. */
-		arm_enforcement_timer(et, t);
+		 * expires.
+		 *
+		 * A special case is if the task has no budget remaining and is
+		 * not non-preemptive. This can happen if a task with barely
+		 * any budget remaining was selected by the active plugin just
+		 * before the budget was exhausted entirely.
+		 *
+		 * For example, this was observed under link-based schedulers
+		 * such as GSN-EDF, where a task can briefly consume budget in
+		 * the ready queue after being unlinked while it is still
+		 * scheduled. If task exhausts its budget while unlinked, then
+		 * the task will later be selected for scheduling despite it
+		 * having exhausted its budget. This could be either handled in
+		 * each plugin, or we can handle it here as a workaround---for
+		 * simplicity, this implements the latter solution. */
+
+		if (likely(!budget_exhausted(t)))
+			arm_enforcement_timer(et, t);
+		else
+			/* The scheduler presented us with a task that has no
+			 * more budget.  Let's call the scheduler again to
+			 * reconsider. The scheduler MUST select another task
+			 * with non-expired budget; otherwise this will result
+			 * in an infinite loop. */
+			litmus_reschedule_local();
+
 	} else if (et->armed) {
 		/* Make sure we don't cause unnecessary interrupts. */
 		cancel_enforcement_timer(et);
