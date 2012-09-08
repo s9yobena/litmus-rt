@@ -13,6 +13,8 @@ static inline void setup_release(struct task_struct *t, lt_t release)
 	t->rt_param.job_params.deadline = release + get_rt_relative_deadline(t);
 	t->rt_param.job_params.exec_time = 0;
 
+	clear_bit(RT_JOB_SIG_BUDGET_SENT, &t->rt_param.job_params.flags);
+
 	/* update job sequence number */
 	t->rt_param.job_params.job_no++;
 

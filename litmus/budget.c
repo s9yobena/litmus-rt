@@ -1,11 +1,13 @@
 #include <linux/sched.h>
 #include <linux/percpu.h>
 #include <linux/hrtimer.h>
+#include <linux/signal.h>
 
 #include <litmus/litmus.h>
 #include <litmus/preempt.h>
 
 #include <litmus/budget.h>
+#include <litmus/signal.h>
 
 struct enforcement_timer {
 	/* The enforcement timer is used to accurately police
@@ -64,7 +66,7 @@ static void arm_enforcement_timer(struct enforcement_timer* et,
 
 	/* Calling this when there is no budget left for the task
 	 * makes no sense, unless the task is non-preemptive. */
-	BUG_ON(budget_exhausted(t) && (!is_np(t)));
+	BUG_ON(budget_exhausted(t) && !is_np(t));
 
 	/* __hrtimer_start_range_ns() cancels the timer
 	 * anyway, so we don't have to check whether it is still armed */
@@ -86,7 +88,7 @@ void update_enforcement_timer(struct task_struct* t)
 {
 	struct enforcement_timer* et = &__get_cpu_var(budget_timer);
 
-	if (t && budget_precisely_enforced(t)) {
+	if (t && budget_precisely_tracked(t) && !sigbudget_sent(t)) {
 		/* Make sure we call into the scheduler when this budget
 		 * expires. */
 		arm_enforcement_timer(et, t);
@@ -96,6 +98,16 @@ void update_enforcement_timer(struct task_struct* t)
 	}
 }
 
+void send_sigbudget(struct task_struct* t)
+{
+	if (!test_and_set_bit(RT_JOB_SIG_BUDGET_SENT, &tsk_rt(t)->job_params.flags)) {
+		/* signal has not yet been sent and we are responsible for sending
+		 * since we just set the sent-bit when it was previously 0. */
+
+		TRACE_TASK(t, "SIG_BUDGET being sent!\n");
+		send_sig(SIG_BUDGET, t, 1); /* '1' denotes signal sent from kernel */
+	}
+}
 
 static int __init init_budget_enforcement(void)
 {

@@ -362,20 +362,28 @@ static noinline void job_completion(struct task_struct *t, int forced)
  */
 static void gsnedf_tick(struct task_struct* t)
 {
-	if (is_realtime(t) && budget_enforced(t) && budget_exhausted(t)) {
-		if (!is_np(t)) {
-			/* np tasks will be preempted when they become
-			 * preemptable again
-			 */
-			litmus_reschedule_local();
-			TRACE("gsnedf_scheduler_tick: "
-			      "%d is preemptable "
-			      " => FORCE_RESCHED\n", t->pid);
-		} else if (is_user_np(t)) {
-			TRACE("gsnedf_scheduler_tick: "
-			      "%d is non-preemptable, "
-			      "preemption delayed.\n", t->pid);
-			request_exit_np(t);
+	if (is_realtime(t) && budget_exhausted(t))
+	{
+		if (budget_signalled(t) && !sigbudget_sent(t)) {
+			/* signal exhaustion */
+			send_sigbudget(t);
+		}
+
+		if (budget_enforced(t)) {
+			if (!is_np(t)) {
+				/* np tasks will be preempted when they become
+				 * preemptable again
+				 */
+				litmus_reschedule_local();
+				TRACE("gsnedf_scheduler_tick: "
+					  "%d is preemptable "
+					  " => FORCE_RESCHED\n", t->pid);
+			} else if (is_user_np(t)) {
+				TRACE("gsnedf_scheduler_tick: "
+					  "%d is non-preemptable, "
+					  "preemption delayed.\n", t->pid);
+				request_exit_np(t);
+			}
 		}
 	}
 }
@@ -404,7 +412,7 @@ static void gsnedf_tick(struct task_struct* t)
 static struct task_struct* gsnedf_schedule(struct task_struct * prev)
 {
 	cpu_entry_t* entry = &__get_cpu_var(gsnedf_cpu_entries);
-	int out_of_time, sleep, preempt, np, exists, blocks;
+	int out_of_time, signal_budget, sleep, preempt, np, exists, blocks;
 	struct task_struct* next = NULL;
 
 #ifdef CONFIG_RELEASE_MASTER
@@ -427,8 +435,13 @@ static struct task_struct* gsnedf_schedule(struct task_struct * prev)
 	/* (0) Determine state */
 	exists      = entry->scheduled != NULL;
 	blocks      = exists && !is_running(entry->scheduled);
-	out_of_time = exists && budget_enforced(entry->scheduled)
-		&& budget_exhausted(entry->scheduled);
+	out_of_time = exists &&
+		budget_enforced(entry->scheduled) &&
+		budget_exhausted(entry->scheduled);
+	signal_budget = exists &&
+		budget_signalled(entry->scheduled) &&
+		budget_exhausted(entry->scheduled) &&
+		!sigbudget_sent(entry->scheduled);
 	np 	    = exists && is_np(entry->scheduled);
 	sleep	    = exists && get_rt_flags(entry->scheduled) == RT_F_SLEEP;
 	preempt     = entry->scheduled != entry->linked;
@@ -439,14 +452,17 @@ static struct task_struct* gsnedf_schedule(struct task_struct * prev)
 
 	if (exists)
 		TRACE_TASK(prev,
-			   "blocks:%d out_of_time:%d np:%d sleep:%d preempt:%d "
+			   "blocks:%d out_of_time:%d signal_budget: %d np:%d sleep:%d preempt:%d "
 			   "state:%d sig:%d\n",
-			   blocks, out_of_time, np, sleep, preempt,
+			   blocks, out_of_time, signal_budget, np, sleep, preempt,
 			   prev->state, signal_pending(prev));
 	if (entry->linked && preempt)
 		TRACE_TASK(prev, "will be preempted by %s/%d\n",
 			   entry->linked->comm, entry->linked->pid);
 
+	/* Send the signal that the budget has been exhausted */
+	if (signal_budget)
+		send_sigbudget(entry->scheduled);
 
 	/* If a task blocks we have no choice but to reschedule.
 	 */

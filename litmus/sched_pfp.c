@@ -135,17 +135,25 @@ static void pfp_tick(struct task_struct *t)
 	 */
 	BUG_ON(is_realtime(t) && t != pfp->scheduled);
 
-	if (is_realtime(t) && budget_enforced(t) && budget_exhausted(t)) {
-		if (!is_np(t)) {
-			litmus_reschedule_local();
-			TRACE("pfp_scheduler_tick: "
-			      "%d is preemptable "
-			      " => FORCE_RESCHED\n", t->pid);
-		} else if (is_user_np(t)) {
-			TRACE("pfp_scheduler_tick: "
-			      "%d is non-preemptable, "
-			      "preemption delayed.\n", t->pid);
-			request_exit_np(t);
+	if (is_realtime(t) && budget_exhausted(t))
+	{
+		if (budget_signalled(t) && !sigbudget_sent(t)) {
+			/* signal exhaustion */
+			send_sigbudget(t);
+		}
+
+		if (budget_enforced(t)) {
+			if (!is_np(t)) {
+				litmus_reschedule_local();
+				TRACE("pfp_scheduler_tick: "
+					  "%d is preemptable "
+					  " => FORCE_RESCHED\n", t->pid);
+			} else if (is_user_np(t)) {
+				TRACE("pfp_scheduler_tick: "
+					  "%d is non-preemptable, "
+					  "preemption delayed.\n", t->pid);
+				request_exit_np(t);
+			}
 		}
 	}
 }
@@ -155,7 +163,7 @@ static struct task_struct* pfp_schedule(struct task_struct * prev)
 	pfp_domain_t* 	pfp = local_pfp;
 	struct task_struct*	next;
 
-	int out_of_time, sleep, preempt, np, exists, blocks, resched, migrate;
+	int out_of_time, signal_budget, sleep, preempt, np, exists, blocks, resched, migrate;
 
 	raw_spin_lock(&pfp->slock);
 
@@ -172,6 +180,10 @@ static struct task_struct* pfp_schedule(struct task_struct * prev)
 	out_of_time = exists &&
 				  budget_enforced(pfp->scheduled) &&
 				  budget_exhausted(pfp->scheduled);
+	signal_budget = exists &&
+					budget_signalled(pfp->scheduled) &&
+					budget_exhausted(pfp->scheduled) &&
+					!sigbudget_sent(pfp->scheduled);
 	np 	    = exists && is_np(pfp->scheduled);
 	sleep	    = exists && get_rt_flags(pfp->scheduled) == RT_F_SLEEP;
 	migrate     = exists && get_partition(pfp->scheduled) != pfp->cpu;
@@ -182,6 +194,10 @@ static struct task_struct* pfp_schedule(struct task_struct * prev)
 	 * circumstances.
 	 */
 	resched = preempt;
+
+	/* Send the signal that the budget has been exhausted */
+	if (signal_budget)
+		send_sigbudget(pfp->scheduled);
 
 	/* If a task blocks we have no choice but to reschedule.
 	 */

@@ -30,8 +30,14 @@ typedef enum {
 typedef enum {
 	NO_ENFORCEMENT,      /* job may overrun unhindered */
 	QUANTUM_ENFORCEMENT, /* budgets are only checked on quantum boundaries */
-	PRECISE_ENFORCEMENT  /* budgets are enforced with hrtimers */
+	PRECISE_ENFORCEMENT, /* budgets are enforced with hrtimers */
 } budget_policy_t;
+
+typedef enum {
+	NO_SIGNALS,			/* job receives no signals when it exhausts its budget */
+	QUANTUM_SIGNALS,	/* budget signals are only sent on quantum boundaries */
+	PRECISE_SIGNALS,	/* budget signals are triggered with hrtimers */
+} budget_signal_policy_t;
 
 /* We use the common priority interpretation "lower index == higher priority",
  * which is commonly used in fixed-priority schedulability analysis papers.
@@ -62,6 +68,7 @@ struct rt_task {
 	unsigned int	priority;
 	task_class_t	cls;
 	budget_policy_t budget_policy; /* ignored by pfair */
+	budget_signal_policy_t budget_signal_policy; /* currently ignored by pfair */
 };
 
 union np_flag {
@@ -118,7 +125,14 @@ struct rt_job {
 	 * Increase this sequence number when a job is released.
 	 */
 	unsigned int    job_no;
+
+	/* bits:
+	 * 0th: Set if a budget exhaustion signal has already been sent for
+	 *      the current job. */
+	unsigned long	flags;
 };
+
+#define RT_JOB_SIG_BUDGET_SENT  0
 
 struct pfair_param;
 

@@ -136,6 +136,16 @@ asmlinkage long sys_set_rt_task_param(pid_t pid, struct rt_task __user * param)
 		       pid, tp.budget_policy);
 		goto out_unlock;
 	}
+	if (tp.budget_signal_policy != NO_SIGNALS &&
+	    tp.budget_signal_policy != QUANTUM_SIGNALS &&
+	    tp.budget_signal_policy != PRECISE_SIGNALS)
+	{
+		printk(KERN_INFO "litmus: real-time task %d rejected "
+		       "because unsupported budget signalling policy "
+		       "specified (%d)\n",
+		       pid, tp.budget_signal_policy);
+		goto out_unlock;
+	}
 
 	target->rt_param.task_params = tp;
 

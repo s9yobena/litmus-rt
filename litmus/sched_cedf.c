@@ -371,21 +371,29 @@ static noinline void job_completion(struct task_struct *t, int forced)
  */
 static void cedf_tick(struct task_struct* t)
 {
-	if (is_realtime(t) && budget_enforced(t) && budget_exhausted(t)) {
-		if (!is_np(t)) {
-			/* np tasks will be preempted when they become
-			 * preemptable again
-			 */
-			litmus_reschedule_local();
-			set_will_schedule();
-			TRACE("cedf_scheduler_tick: "
-			      "%d is preemptable "
-			      " => FORCE_RESCHED\n", t->pid);
-		} else if (is_user_np(t)) {
-			TRACE("cedf_scheduler_tick: "
-			      "%d is non-preemptable, "
-			      "preemption delayed.\n", t->pid);
-			request_exit_np(t);
+	if (is_realtime(t) && budget_exhausted(t))
+	{
+		if (budget_signalled(t) && !sigbudget_sent(t)) {
+			/* signal exhaustion */
+			send_sigbudget(t);
+		}
+
+		if (budget_enforced(t)) {
+			if (!is_np(t)) {
+				/* np tasks will be preempted when they become
+				 * preemptable again
+				 */
+				litmus_reschedule_local();
+				set_will_schedule();
+				TRACE("cedf_scheduler_tick: "
+					  "%d is preemptable "
+					  " => FORCE_RESCHED\n", t->pid);
+			} else if (is_user_np(t)) {
+				TRACE("cedf_scheduler_tick: "
+					  "%d is non-preemptable, "
+					  "preemption delayed.\n", t->pid);
+				request_exit_np(t);
+			}
 		}
 	}
 }
@@ -415,7 +423,7 @@ static struct task_struct* cedf_schedule(struct task_struct * prev)
 {
 	cpu_entry_t* entry = &__get_cpu_var(cedf_cpu_entries);
 	cedf_domain_t *cluster = entry->cluster;
-	int out_of_time, sleep, preempt, np, exists, blocks;
+	int out_of_time, signal_budget, sleep, preempt, np, exists, blocks;
 	struct task_struct* next = NULL;
 
 #ifdef CONFIG_RELEASE_MASTER
@@ -442,6 +450,10 @@ static struct task_struct* cedf_schedule(struct task_struct * prev)
 	out_of_time = exists &&
 				  budget_enforced(entry->scheduled) &&
 				  budget_exhausted(entry->scheduled);
+	signal_budget = exists &&
+					budget_signalled(entry->scheduled) &&
+					budget_exhausted(entry->scheduled) &&
+					!sigbudget_sent(entry->scheduled);
 	np 	    = exists && is_np(entry->scheduled);
 	sleep	    = exists && get_rt_flags(entry->scheduled) == RT_F_SLEEP;
 	preempt     = entry->scheduled != entry->linked;
@@ -460,6 +472,9 @@ static struct task_struct* cedf_schedule(struct task_struct * prev)
 		TRACE_TASK(prev, "will be preempted by %s/%d\n",
 			   entry->linked->comm, entry->linked->pid);
 
+	/* Send the signal that the budget has been exhausted */
+	if (signal_budget)
+		send_sigbudget(entry->scheduled);
 
 	/* If a task blocks we have no choice but to reschedule.
 	 */
