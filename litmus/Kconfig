@@ -89,7 +89,7 @@ choice
 	config EDF_TIE_BREAK_LATENESS
 	bool "Lateness-based Tie Break"
 	help
-	  Break ties between to jobs, A and B, based upon the lateness of their
+	  Break ties between two jobs, A and B, based upon the lateness of their
 	  prior jobs. The job with the greatest lateness has priority. Note that
 	  lateness has a negative value if the prior job finished before its
 	  deadline.
@@ -97,8 +97,8 @@ choice
 	config EDF_TIE_BREAK_LATENESS_NORM
 	bool "Normalized Lateness-based Tie Break"
 	help
-	  Break ties between to jobs, A and B, based upon the lateness, normalized
-	  by relative deadline, their prior jobs. The job with the greatest
+	  Break ties between two jobs, A and B, based upon the lateness, normalized
+	  by relative deadline, of their prior jobs. The job with the greatest
 	  normalized lateness has priority. Note that lateness has a negative value
 	  if the prior job finished before its deadline.
 	  
@@ -116,9 +116,9 @@ choice
 	config EDF_PID_TIE_BREAK
 	bool "PID-based Tie Breaks"
 	help
-	  Break ties based upon OS-assigned process IDs. Use this option if
+	  Break ties based upon OS-assigned thread IDs. Use this option if
 	  required by algorithm's real-time analysis or per-task response-time
-	  jitter must be minimized in overload conditions.
+	  jitter must be minimized.
 	
 	  NOTES:
 	    * This tie-breaking method was default in Litmus 2012.2 and before.
