@@ -157,7 +157,7 @@ int edf_higher_prio(struct task_struct* first,
 				/* If the PIDs are the same then the task with the
 				 * inherited priority wins.
 				 */
-				if (!second_task->rt_param.inh_task) {
+				if (!second->rt_param.inh_task) {
 					return 1;
 				}
 			}
