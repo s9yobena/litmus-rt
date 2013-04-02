@@ -89,8 +89,10 @@ feather_callback void save_task_latency(unsigned long event, unsigned long when_
 #define TS_RELEASE_START		DTIMESTAMP(TS_RELEASE_START_EVENT, TSK_RT)
 #define TS_RELEASE_END			DTIMESTAMP(107, TSK_RT)
 
-#define TS_TICK_START(t)		TTIMESTAMP(110, t)
-#define TS_TICK_END(t) 			TTIMESTAMP(111, t)
+#define TS_TICK_START_EVENT             110
+#define TS_TICK_END_EVENT               111
+#define TS_TICK_START(t)		TTIMESTAMP(TS_TICK_START_EVENT, t)
+#define TS_TICK_END(t) 			TTIMESTAMP(TS_TICK_END_EVENT, t)
 
 
 #define TS_PLUGIN_SCHED_START		/* TIMESTAMP(120) */  /* currently unused */
