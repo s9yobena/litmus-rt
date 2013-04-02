@@ -21,10 +21,6 @@
 #include <litmus/affinity.h>
 #endif
 
-#ifdef CONFIG_MAX_SCHED_OVERHEAD_TRACE
-#include <litmus/max_trace.h>
-#endif
-
 /* Number of RT tasks that exist in the system */
 atomic_t rt_task_count 		= ATOMIC_INIT(0);
 static DEFINE_RAW_SPINLOCK(task_transition_lock);
@@ -290,27 +286,6 @@ asmlinkage long sys_null_call(cycles_t __user *ts)
 	return ret;
 }
 
-/*
- * Getter of system maximum overhead values
- *   returns EFAULT if copying of parameters has failed.
- *
- */
-asmlinkage long sys_get_max_overheads(struct max_overheads_t __user * param)
-{
-	int retval = -EINVAL;
-	struct max_overheads_t lp;
-	unsigned long lock_flags;
-
-	spin_lock_irqsave(&max_overheads_spinlock, lock_flags);
-	lp = max_overheads;
-	spin_unlock_irqrestore(&max_overheads_spinlock, lock_flags);
-
-	retval =
-	    copy_to_user(param, &lp, sizeof(lp)) ? -EFAULT : 0;
-	return retval;
-}
-
-
 /* p is a real-time task. Re-init its state as a best-effort task. */
 static void reinit_litmus_state(struct task_struct* p, int restore)
 {
@@ -400,8 +375,7 @@ out:
 void litmus_exit_task(struct task_struct* tsk)
 {
 	if (is_realtime(tsk)) {
-		sched_trace_task_completion(tsk, 1); /* for job completion */
-		sched_trace_task_termination(tsk); /* for task terminatation */
+		sched_trace_task_completion(tsk, 1);
 
 		litmus->task_exit(tsk);
 
