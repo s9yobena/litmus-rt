@@ -48,6 +48,81 @@ static inline void __save_irq_flags(struct timestamp *ts)
 static inline void __save_timestamp_cpu(unsigned long event,
 					uint8_t type, uint8_t cpu)
 {
+        #ifdef CONFIG_MAX_SCHED_OVERHEAD_TRACE
+
+	unsigned int seq_no;
+	struct timestamp *ts;
+	struct timestamp mt_ts;
+	int mt_check_r;
+	struct timestamp mt_start_ts;
+	struct timestamp mt_end_ts;
+
+	seq_no = fetch_and_inc((int *) &ts_seq_no);
+
+	/* prevent re-ordering of fetch_and_inc()  */	
+	barrier();
+
+	mt_ts.event     = event;
+	mt_ts.seq_no    = seq_no;
+	mt_ts.cpu       = cpu;
+	mt_ts.task_type = type;
+	__save_irq_flags(&mt_ts);
+	barrier();
+	/* prevent re-ordering of ft_timestamp() */
+	mt_ts.timestamp = ft_timestamp();
+	
+	/* check for maxima */
+	mt_check_r = mt_check(&mt_ts, &mt_start_ts, &mt_end_ts);
+
+	if (mt_check_r > -1) {
+		/* TRACE(KERN_INFO "New maximum overhead %lu \n", */
+		/*        (unsigned long)(mt_end_ts.timestamp - mt_start_ts.timestamp)); */
+		/* TRACE(KERN_INFO "id of start ts is: %d \n", */
+		/*       mt_start_ts.event); */
+		/* TRACE(KERN_INFO "timestamp of start ts is: %lu \n", */
+		/*       (unsigned long)mt_start_ts.timestamp); */
+		/* TRACE(KERN_INFO "id of end ts is: %d \n", */
+		/*       mt_end_ts.event); */
+		/* TRACE(KERN_INFO "timestamp of end ts is: %lu \n", */
+		/*        (unsigned long)mt_end_ts.timestamp); */
+		/* mt_get_pair_ts(mt_check_r, cpu, &mt_start_ts, &mt_end_ts); */
+		barrier();
+		if (ft_buffer_start_write(trace_ts_buf, (void**)  &ts)) {
+			ts->event      =  mt_start_ts.event;
+			ts->seq_no     =  mt_start_ts.seq_no;
+			ts->cpu        =  mt_start_ts.cpu;
+			ts->task_type  =  mt_start_ts.task_type;
+			ts->irq_flag   =  mt_start_ts.irq_flag;
+			ts->irq_count  =  mt_start_ts.irq_count;
+			ts->timestamp  = mt_start_ts.timestamp;
+			TRACE(KERN_DEBUG "writing timestamp with id: %d \n", 
+			       ts->event);
+			ft_buffer_finish_write(trace_ts_buf, ts);
+
+		} else
+			printk(KERN_DEBUG "Could not write start ts");
+
+		barrier();
+
+		if (ft_buffer_start_write(trace_ts_buf, (void**)  &ts)) {
+			ts->event      =  mt_end_ts.event;
+			ts->seq_no     =  mt_end_ts.seq_no;
+			ts->cpu        =  mt_end_ts.cpu;
+			ts->task_type  =  mt_end_ts.task_type;
+			ts->irq_flag   =  mt_end_ts.irq_flag;
+			ts->irq_count  =  mt_end_ts.irq_count;
+			ts->timestamp  = mt_end_ts.timestamp;
+			TRACE(KERN_DEBUG "writing timestamp with id: %d \n", 
+			       ts->event);
+			ft_buffer_finish_write(trace_ts_buf, ts);
+
+		} else
+			TRACE(KERN_DEBUG "Could not write end ts");
+			
+	}
+
+#else /* !CONFIG_MAX_SCHED_OVERHEAD_TRACE */
+
 	unsigned int seq_no;
 	struct timestamp *ts;
 	seq_no = fetch_and_inc((int *) &ts_seq_no);
