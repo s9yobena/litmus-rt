@@ -25,6 +25,10 @@
 #include <litmus/max_trace.h>
 #endif
 
+#ifdef CONFIG_EXTRA_CXS
+#include <litmus/extra_cxs.h>
+#endif
+
 /* Number of RT tasks that exist in the system */
 atomic_t rt_task_count 		= ATOMIC_INIT(0);
 static DEFINE_RAW_SPINLOCK(task_transition_lock);
@@ -312,6 +316,41 @@ asmlinkage long sys_reset_max_overheads(void)
 #endif
 	return retval;
 }
+
+/*
+ * Introduce extra iterations in context_switch()
+ *   Returns EINVAL  if param is NULL.
+ *   returns EFAULT if copying of parameters has failed.
+ *   returns ENOSYS if extra-cxs not enabled
+ *   returns 0 if success
+ *
+ */
+asmlinkage long sys_set_extra_cxs(int __user * param)
+{	
+	int retval = -EINVAL;
+
+#ifdef CONFIG_EXTRA_CXS
+
+	struct extra_cxs_t tp;
+	if (param == 0)
+		goto out;
+
+	if (copy_from_user(&tp, param, sizeof(tp))) {
+		retval = -EFAULT;
+		goto out;
+	}
+	
+	retval = set_extra_cxs(&tp);
+#else
+
+	retval = -ENOSYS;
+	
+#endif	
+        
+        out:
+	return retval;
+}
+
 
 /* p is a real-time task. Re-init its state as a best-effort task. */
 static void reinit_litmus_state(struct task_struct* p, int restore)

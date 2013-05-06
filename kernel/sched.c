@@ -83,6 +83,10 @@
 #include <litmus/sched_trace.h>
 #include <litmus/trace.h>
 
+#ifdef CONFIG_EXTRA_CXS
+#include <litmus/extra_cxs.h>
+#endif
+
 static void litmus_tick(struct rq*, struct task_struct*);
 
 #define CREATE_TRACE_POINTS
@@ -3190,6 +3194,10 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	       struct task_struct *next)
 {
 	struct mm_struct *mm, *oldmm;
+
+#ifdef CONFIG_EXTRA_CXS
+	extra_cxs();
+#endif
 
 	prepare_task_switch(rq, prev, next);
 

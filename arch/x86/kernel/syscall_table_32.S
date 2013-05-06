@@ -359,3 +359,4 @@ ENTRY(sys_call_table)
 	.long sys_release_ts		/* +10 */
 	.long sys_null_call
 	.long sys_reset_max_overheads 	/* +12  */
+	.long sys_set_extra_cxs 	/* +13  */		

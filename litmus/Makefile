@@ -28,3 +28,4 @@ obj-$(CONFIG_SCHED_TASK_TRACE) += sched_task_trace.o
 obj-$(CONFIG_SCHED_DEBUG_TRACE) += sched_trace.o
 obj-$(CONFIG_SCHED_OVERHEAD_TRACE) += trace.o
 obj-$(CONFIG_MAX_SCHED_OVERHEAD_TRACE) += max_trace.o
+obj-$(CONFIG_EXTRA_CXS) += extra_cxs.o

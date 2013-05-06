@@ -31,5 +31,7 @@ __SYSCALL(__NR_release_ts, sys_release_ts)
 __SYSCALL(__NR_null_call, sys_null_call)
 #define __NR_reset_max_overheads		__LSC(12)
 __SYSCALL(__NR_reset_max_overheads, sys_reset_max_overheads)
+#define __NR_set_extra_cxs		        __LSC(13)
+__SYSCALL(__NR_set_extra_cxs, sys_set_extra_cxs)
 
-#define NR_litmus_syscalls 13
+#define NR_litmus_syscalls 14
