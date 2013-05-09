@@ -6,12 +6,12 @@
 
 struct extra_cxs_t {
 	int do_extra_cxs;
+	int extra_cxs_cpu;
 	unsigned int init_extra_cxs;
 	unsigned int step_extra_cxs;
 };
 
-inline int
- set_extra_cxs(struct extra_cxs_t*);
+inline int set_extra_cxs(struct extra_cxs_t*);
 inline void extra_cxs(void);
 
 #else /* !CONFIG_EXTRA_CXS */
