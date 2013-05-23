@@ -11,6 +11,7 @@ struct extra_cxs_t {
 	unsigned int step_extra_cxs;
 };
 
+inline void init_extra_cxs(void);
 inline int set_extra_cxs(struct extra_cxs_t*);
 inline void extra_cxs(void);
 

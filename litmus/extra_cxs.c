@@ -1,6 +1,7 @@
 #include <litmus/extra_cxs.h>
 
 #include <linux/percpu.h>
+#include <linux/printk.h>
 
 
 static DEFINE_PER_CPU(int, __do_extra_cxs);
@@ -15,6 +16,16 @@ static DEFINE_PER_CPU(unsigned int, __step_extra_cxs);
 #define _step_extra_cxs (__get_cpu_var(__step_extra_cxs))
 #define step_extra_cxs_for(cpu_id) (per_cpu(__step_extra_cxs, cpu_id))
 
+inline void init_extra_cxs(void) {
+	
+	int cpu;
+	for_each_online_cpu(cpu) {
+		
+		do_extra_cxs_for(cpu) = 0;
+		extra_cxs_itr_for(cpu) = 0;
+		step_extra_cxs_for(cpu) = 0;
+	}
+}
 
 inline int set_extra_cxs(struct extra_cxs_t *_ecxs) {
 
@@ -58,6 +69,7 @@ inline void extra_cxs(void) {
 
 	local_irq_save(irq_flags);
 	if (_do_extra_cxs) {
+	printk(KERN_EMERG "Starting extra_cxs\n");
 		_extra_cxs_itr += _step_extra_cxs;
 		x = 0;
 		do {
@@ -65,6 +77,9 @@ inline void extra_cxs(void) {
 			x++;
 			barrier();
 		} while (x<_extra_cxs_itr);
+		_do_extra_cxs = 0;
+		printk(KERN_EMERG "End of extra_cxs; took %u extra iterations\n",
+		      x);
 	}
 	local_irq_restore(irq_flags);
 }

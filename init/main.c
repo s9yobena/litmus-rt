@@ -79,6 +79,10 @@
 #include <asm/smp.h>
 #endif
 
+#ifdef CONFIG_EXTRA_CXS
+#include <litmus/extra_cxs.h>
+#endif
+
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -547,6 +551,9 @@ asmlinkage void __init start_kernel(void)
 		printk(KERN_CRIT "start_kernel(): bug: interrupts were "
 				 "enabled early\n");
 	early_boot_irqs_disabled = false;
+#ifdef CONFIG_EXTRA_CXS
+	init_extra_cxs();
+#endif
 	local_irq_enable();
 
 	/* Interrupts are enabled now so all GFP allocations are safe. */
